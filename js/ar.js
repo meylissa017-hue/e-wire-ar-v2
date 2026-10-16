@@ -228,6 +228,7 @@ export class Penempatan {
     this.zum = 1;
     this._umur = 0;
     this._sasar = new THREE.Vector3();
+    this._licin = new THREE.Vector3();
     this._mula = true;
     scene.add(this.akar);
   }
@@ -241,15 +242,21 @@ export class Penempatan {
     this.akar.visible = true;
     this._umur += dt;
 
+    // Pose penanda dilicinkan DAHULU, kemudian kedudukan dan saiz dikira daripada pose licin yang sama.
+    // (Dulu kedudukan dan saiz dilicinkan berasingan pada kadar berbeza — gangguan kecil jarak
+    // penjejakan membuat saiz pada skrin bergoyang, lalu label pada objek nampak bergetar.)
+    if (this._mula) this._licin.copy(jejak.pos);
+    else this._licin.lerp(jejak.pos, 1 - Math.pow(0.0005, dt));   // pelicinan ~bebas kadar bingkai
     const e = camera.projectionMatrix.elements;
-    const jarak = Math.max(0.001, -jejak.pos.z);
+    const jarak = Math.max(0.001, -this._licin.z);
     const lebarDunia = (2 * jarak) / e[0];     // lebar skrin (unit dunia) pada jarak penanda
     const tinggiDunia = (2 * jarak) / e[5];
 
-    this._sasar.copy(jejak.pos);
-    if (this.pusatSkrin) this._sasar.set(0, 0, jejak.pos.z);   // kamera di asalan: x = y = 0 ialah tengah skrin
+    this._sasar.copy(this._licin);
+    if (this.pusatSkrin) this._sasar.set(0, 0, this._licin.z);   // kamera di asalan: x = y = 0 ialah tengah skrin
     let skala = (this.lebarSkrin * lebarDunia) / this.lebarModel;
     if (this.tinggiMaks) skala = Math.min(skala, (this.tinggiMaks.pecahan * tinggiDunia) / this.tinggiMaks.tinggiModel);
+    let ox = 0, oy = this.naik * tinggiDunia;
 
     if (this.muat) {
       // Muat kandungan ke dalam ruang skrin yang tidak dilindungi tajuk/HUD/butang (lihat _ruangBebas):
@@ -261,17 +268,18 @@ export class Penempatan {
       if (r && k) {
         const sx = (r.lebar * lebarDunia) / k.lebar, sy = (r.tinggi * tinggiDunia) / k.tinggi;
         skala = Math.min(sx, sy) * this.muat.isi;
-        this._sasar.y += r.naik * tinggiDunia - k.y * skala;
-        this._sasar.x += r.anjak * lebarDunia - k.x * skala;
+        oy = r.naik * tinggiDunia - k.y * skala;
+        ox = r.anjak * lebarDunia - k.x * skala;
       }
-      if (this._skalaLicin === undefined) this._skalaLicin = skala;
-      else this._skalaLicin += (skala - this._skalaLicin) * (1 - Math.pow(0.002, dt));   // panel muncul -> mengecil perlahan
-      skala = this._skalaLicin;
-    } else {
-      this._sasar.y += this.naik * tinggiDunia;
     }
-    if (this._mula) { this.akar.position.copy(this._sasar); this._mula = false; }
-    else this.akar.position.lerp(this._sasar, 1 - Math.pow(0.0005, dt));   // pelicinan ~bebas kadar bingkai
+    // Saiz & anjakan disimpan sebagai NISBAH jarak (tetap pada skrin) dan dilicinkan perlahan — panel
+    // muncul -> kandungan mengecil/beralih lembut, tanpa bergantung pada gangguan jarak.
+    const n = { s: skala / jarak, x: ox / jarak, y: oy / jarak };
+    if (this._mula || !this._nisbah) this._nisbah = n;
+    else { const a = 1 - Math.pow(0.002, dt); for (const c of ['s', 'x', 'y']) this._nisbah[c] += (n[c] - this._nisbah[c]) * a; }
+    skala = this._nisbah.s * jarak;
+    this.akar.position.set(this._sasar.x + this._nisbah.x * jarak, this._sasar.y + this._nisbah.y * jarak, this._sasar.z);
+    this._mula = false;
 
     const pop = Math.min(1, this._umur / 0.4);
     const lengkung = 1 - Math.pow(1 - pop, 3);   // ease-out

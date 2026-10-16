@@ -30,11 +30,10 @@ const PALET = {
   Kampung_Tembaga: [0.80, 0.48, 0.25, 0.6, 0.8], Kampung_Kereta: [0.72, 0.66, 0.52, 0.6, 0.4],
   Kampung_DaunKad: [0.80, 0.92, 0.70, 0.12, 0, 'daun_gugus.png', 1], Kampung_Pelepah: [0.85, 0.95, 0.72, 0.15, 0, 'pelepah.png', 1],
   Kampung_PisangKad: [0.92, 1.0, 0.80, 0.2, 0, 'pisang.png', 1],
-  Kampung_BenderaMerah: [0.75, 0.08, 0.10, 0.1, 0], Kampung_BenderaPutih: [0.92, 0.92, 0.92, 0.1, 0],
-  Kampung_BenderaBiru: [0.05, 0.10, 0.40, 0.1, 0], Kampung_BenderaKuning: [0.95, 0.80, 0.10, 0.2, 0],
+  Kampung_BenderaKeda: [1, 1, 1, 0.1, 0, 'bendera_keda.png', 1],   // bendera Kolej KEDA (UV 0..1)
 };
 const BAHAN_POKOK = new Set(['Kampung_Daun', 'Kampung_Daun2', 'Kampung_DaunPisang', 'Kampung_Batang', 'Kampung_DaunKad', 'Kampung_Pelepah', 'Kampung_PisangKad', 'Kampung_KayuGelap']);
-const BAHAN_BENDERA = new Set(['Kampung_BenderaMerah', 'Kampung_BenderaPutih', 'Kampung_BenderaBiru', 'Kampung_BenderaKuning']);
+const BAHAN_BENDERA = new Set(['Kampung_BenderaKeda']);
 const BAHAN_TANAH = new Set(['Kampung_Rumput', 'Kampung_RumputGelap', 'Kampung_Tanah', 'Kampung_DasarSungai', 'Kampung_Air', 'Kampung_Batu', 'Kampung_Jalan', 'Kampung_GarisJalan']);
 const BAHAN_KAD = new Set(['Kampung_DaunKad', 'Kampung_Pelepah', 'Kampung_PisangKad']);
 
@@ -61,6 +60,8 @@ function binaBahan(nama, seragam) {
       // Klon berkongsi sumber imej yang sama (dimuat sekali); hanya ulangan UV berbeza.
       const t = tekstur(p[5], { ulang: true }).clone();
       t.repeat.set(p[6], p[6]);
+      // UV glTF bermula di ATAS imej; tekstur berulang lain tidak peduli arah, tetapi logo bendera mesti tegak.
+      if (BAHAN_BENDERA.has(nama)) { t.flipY = false; t.needsUpdate = true; }
       m.map = t;
     }
   } else { m.color = srgb(0.7, 0.7, 0.7); m.roughness = 0.85; }
@@ -1057,7 +1058,7 @@ export async function kampung(ctx) {
     return t.localToWorld(c);
   }
 
-  function kemaskiniLabel() {
+  function kemaskiniLabel(dt = 1 / 60) {
     const zum = zumK * zumP;
     const kampungNampak = tempat && tempat.nampak;
     const aktifL = [];
@@ -1067,20 +1068,30 @@ export async function kampung(ctx) {
         && (!l.kecil || zum >= 1.8) && (l.kecil || zum < 2.2) && (elPanelMisi.hidden || !l.kecil);   // zum dekat: label komponen sahaja
       let s = null;
       if (boleh) { const p = titikLabel(l); s = p && keSkrin(p); boleh = !!s && s.z < 1 && s.x > -50 && s.x < el.clientWidth + 50 && s.y > 0 && s.y < el.clientHeight; }
-      if (!boleh) { l.kotakEl.style.display = l.garis.style.display = l.titik.style.display = 'none'; continue; }
+      if (!boleh) { l.kotakEl.style.display = l.garis.style.display = l.titik.style.display = 'none'; l.licin = null; continue; }
       l.tx = s.x; l.ty = s.y;
       l.pos = { x: s.x, y: s.y - (l.kecil ? 28 : 36) };
       l.w = l.kotakEl.offsetWidth || 90; l.h = l.kotakEl.offsetHeight || 22;
       aktifL.push(l);
     }
     // Elak label bertindih: tolak ke atas label yang bertembung (diisih dari bawah).
+    // Histeresis: pasangan yang sudah ditolak kekal ditolak sehingga jaraknya jelas melebihi had,
+    // supaya label tidak melompat-lompat bila dua label hampir-hampir bertindih.
     aktifL.sort((a, b) => b.pos.y - a.pos.y);
+    for (const l of aktifL) { l.tolakLama = l.tolak || new Set(); l.tolak = new Set(); }
     for (let i = 0; i < aktifL.length; i++) for (let j = 0; j < i; j++) {
       const a = aktifL[i], b = aktifL[j];
-      const lebar = (a.w + b.w) / 2 + 4, tinggi = (a.h + b.h) / 2 + 3;
-      if (Math.abs(a.pos.x - b.pos.x) < lebar && Math.abs(a.pos.y - b.pos.y) < tinggi) a.pos.y = b.pos.y - tinggi;
+      const lebih = a.tolakLama.has(b.kunci) ? 10 : 0;
+      const lebar = (a.w + b.w) / 2 + 4 + lebih, tinggi = (a.h + b.h) / 2 + 3;
+      if (Math.abs(a.pos.x - b.pos.x) < lebar && Math.abs(a.pos.y - b.pos.y) < tinggi + lebih) { a.pos.y = b.pos.y - tinggi; a.tolak.add(b.kunci); }
     }
+    // Kotak label dilicinkan (titik kekal tepat pada objek): tolakan "elak bertindih" yang bertukar
+    // antara dua kedudukan, dan gangguan kecil penjejakan, tidak lagi kelihatan sebagai getaran.
+    const a = 1 - Math.pow(0.0001, dt);
     for (const l of aktifL) {
+      if (!l.licin) l.licin = { ...l.pos };
+      else { l.licin.x += (l.pos.x - l.licin.x) * a; l.licin.y += (l.pos.y - l.licin.y) * a; }
+      l.pos = { x: Math.round(l.licin.x * 2) / 2, y: Math.round(l.licin.y * 2) / 2 };
       l.kotakEl.style.display = l.garis.style.display = l.titik.style.display = '';
       l.kotakEl.style.transform = `translate(${l.pos.x - l.w / 2}px, ${l.pos.y - l.h / 2}px)`;
       l.titik.style.transform = `translate(${l.tx - 3.5}px, ${l.ty - 3.5}px)`;
@@ -1180,7 +1191,7 @@ export async function kampung(ctx) {
         }
         kemaskiniCahayaBangunan();
       }
-      kemaskiniLabel();
+      kemaskiniLabel(dt);
       zk.kemaskini(dt); kilau.kemaskini(dt);
     },
   };
