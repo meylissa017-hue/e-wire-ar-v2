@@ -155,7 +155,7 @@ await page.screenshot({ path: join(keluar, 'main-keputusan.png') });
 // Kemajuan kekal selepas muat semula?
 await page.goto('http://127.0.0.1:8765/index.html?pratonton&skrin=pilih');
 await page.waitForTimeout(600);
-console.log('Selepas muat semula:', await xp());
+console.log('Selepas muat semula:', await page.textContent('#pilih-xp'), '|', await page.textContent('#pilih-selesai'));
 await page.screenshot({ path: join(keluar, 'main-pilih.png') });
 console.log('Ralat:', ralat.length ? ralat : 'tiada');
 await browser.close();

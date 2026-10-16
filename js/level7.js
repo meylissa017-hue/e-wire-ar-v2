@@ -241,7 +241,7 @@ export async function level7(ctx) {
   model = await muatModel('KipasSiling');
   if (!m.hidup) return { tamat() {} };
   o = cariSemua(model);
-  tempat = new Penempatan({ lebarModel: 1, lebarSkrin: 0.84, naik: 0.12 });
+  tempat = new Penempatan({ lebarModel: 1, lebarSkrin: 0.84, naik: 0.12, muat: { skrin: document.getElementById('s-level7'), atas: '.bar-atas, .l-tajuk, .l-subtajuk', bawah: '.hud-panel, .l-pilihan, .k-misi' } });
   model.updateMatrixWorld(true);
   sediakan();
   const saiz = tengahkan(condong, tempat.pusing);

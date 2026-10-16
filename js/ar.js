@@ -65,7 +65,7 @@ async function mulaKamera() {
       maxTrack: 1,
       uiLoading: 'no', uiScanning: 'no', uiError: 'no',
       filterMinCF: 0.001, filterBeta: 10,
-      warmupTolerance: 3, missTolerance: 10,
+      warmupTolerance: 6, missTolerance: 10,   // 6 bingkai berturut sebelum dikira dikesan — elak objek muncul tanpa poster
     });
     mind.addAnchor(0);
     mind.addAnchor(1);
@@ -212,7 +212,7 @@ export const dariBlender = (x, y, z) => new THREE.Vector3(x, z, -y);
  * patut didudukinya; `naik` pecahan tinggi skrin ia diangkat di atas pusat penanda.
  */
 export class Penempatan {
-  constructor({ lebarModel, lebarSkrin = 0.6, naik = 0.1, tinggiMaks = 0, pusatSkrin = false }) {
+  constructor({ lebarModel, lebarSkrin = 0.6, naik = 0.1, tinggiMaks = 0, pusatSkrin = false, muat = null }) {
     this.akar = new THREE.Group();
     this.pusing = new THREE.Group();
     this.akar.add(this.pusing);
@@ -222,6 +222,9 @@ export class Penempatan {
     this.naik = naik;
     this.tinggiMaks = tinggiMaks;   // { tinggiModel, pecahan } — had tinggi skrin (pilihan)
     this.pusatSkrin = pusatSkrin;   // kandungan di tengah skrin walaupun poster tidak di tengah (Kampung)
+    // muat = { skrin, atas, bawah, kanan?, isi } — muatkan ke ruang skrin bebas (Level 6–9, Kampung)
+    this.muat = muat ? { isi: 0.88, ...muat } : null;
+    this._sejakRuang = 0;
     this.zum = 1;
     this._umur = 0;
     this._sasar = new THREE.Vector3();
@@ -245,16 +248,92 @@ export class Penempatan {
 
     this._sasar.copy(jejak.pos);
     if (this.pusatSkrin) this._sasar.set(0, 0, jejak.pos.z);   // kamera di asalan: x = y = 0 ialah tengah skrin
-    this._sasar.y += this.naik * tinggiDunia;
+    let skala = (this.lebarSkrin * lebarDunia) / this.lebarModel;
+    if (this.tinggiMaks) skala = Math.min(skala, (this.tinggiMaks.pecahan * tinggiDunia) / this.tinggiMaks.tinggiModel);
+
+    if (this.muat) {
+      // Muat kandungan ke dalam ruang skrin yang tidak dilindungi tajuk/HUD/butang (lihat _ruangBebas):
+      // kotak kandungan yang nampak ditengahkan pada ruang itu dan diskala supaya muat lebar DAN tinggi.
+      if (!this._kotak) this._kotak = this._ukurKandungan();
+      this._sejakRuang += dt;
+      if (!this._ruang || this._sejakRuang > 0.3) { this._ruang = this._ruangBebas(); this._sejakRuang = 0; }
+      const r = this._ruang, k = this._kotak;
+      if (r && k) {
+        const sx = (r.lebar * lebarDunia) / k.lebar, sy = (r.tinggi * tinggiDunia) / k.tinggi;
+        skala = Math.min(sx, sy) * this.muat.isi;
+        this._sasar.y += r.naik * tinggiDunia - k.y * skala;
+        this._sasar.x += r.anjak * lebarDunia - k.x * skala;
+      }
+      if (this._skalaLicin === undefined) this._skalaLicin = skala;
+      else this._skalaLicin += (skala - this._skalaLicin) * (1 - Math.pow(0.002, dt));   // panel muncul -> mengecil perlahan
+      skala = this._skalaLicin;
+    } else {
+      this._sasar.y += this.naik * tinggiDunia;
+    }
     if (this._mula) { this.akar.position.copy(this._sasar); this._mula = false; }
     else this.akar.position.lerp(this._sasar, 1 - Math.pow(0.0005, dt));   // pelicinan ~bebas kadar bingkai
 
-    let skala = (this.lebarSkrin * lebarDunia) / this.lebarModel;
-    if (this.tinggiMaks) skala = Math.min(skala, (this.tinggiMaks.pecahan * tinggiDunia) / this.tinggiMaks.tinggiModel);
     const pop = Math.min(1, this._umur / 0.4);
     const lengkung = 1 - Math.pow(1 - pop, 3);   // ease-out
     this.akar.scale.setScalar(skala * this.zum * (0.2 + 0.8 * lengkung));
   }
+
+  /**
+   * Kotak kandungan yang NAMPAK (mesh tersembunyi, proksi sentuhan & kesan diabaikan) dalam ruang
+   * akar pada skala 1: { lebar, tinggi, x, y } — x/y ialah pusat kotak (pandangan kamera, Y ke atas).
+   */
+  _ukurKandungan() {
+    const kotak = new THREE.Box3(), sementara = new THREE.Box3();
+    const songsang = new THREE.Matrix4();
+    const skalaLama = this.akar.scale.clone(), posLama = this.akar.position.clone();
+    this.akar.scale.set(1, 1, 1); this.akar.position.set(0, 0, 0);
+    this.akar.updateMatrixWorld(true);
+    songsang.copy(this.akar.matrixWorld).invert();
+    this.pusing.traverseVisible((o) => {
+      if (!o.isMesh || o.userData.proksi || o.userData.bukanSempadan || o.isSprite) return;
+      const b = o.material && (Array.isArray(o.material) ? o.material[0] : o.material);
+      if (b && b.visible === false) return;
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      sementara.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld).applyMatrix4(songsang);
+      kotak.union(sementara);
+    });
+    this.akar.scale.copy(skalaLama); this.akar.position.copy(posLama);
+    this.akar.updateMatrixWorld(true);
+    if (kotak.isEmpty()) return null;
+    const saiz = kotak.getSize(new THREE.Vector3()), c = kotak.getCenter(new THREE.Vector3());
+    return { lebar: Math.max(1e-6, saiz.x), tinggi: Math.max(1e-6, saiz.y), x: c.x, y: c.y };
+  }
+
+  /**
+   * Ruang skrin bebas: di bawah elemen `muat.atas` dan di atas elemen `muat.bawah` yang sedang
+   * kelihatan, dan di kiri elemen `muat.kanan` jika ia menghalang ruang itu. Dalam pecahan skrin:
+   * { lebar, tinggi, naik (pusat ruang di atas pusat skrin), anjak (ke kanan) }.
+   */
+  _ruangBebas() {
+    const el = bekas(), skrin = this.muat.skrin;
+    if (!el || !skrin) return null;
+    const B = el.getBoundingClientRect();
+    if (B.width < 10 || B.height < 10) return null;
+    const nampak = (n) => { const r = n.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(n).visibility !== 'hidden' ? r : null; };
+    let atas = B.top, bawah = B.bottom, kiri = B.left, kanan = B.right;
+    for (const n of skrin.querySelectorAll(this.muat.atas || '')) { const r = nampak(n); if (r && r.bottom < B.top + B.height * 0.5) atas = Math.max(atas, r.bottom); }
+    for (const n of skrin.querySelectorAll(this.muat.bawah || '')) { const r = nampak(n); if (r && r.top > B.top + B.height * 0.3) bawah = Math.min(bawah, r.top); }
+    if (this.muat.kanan) for (const n of skrin.querySelectorAll(this.muat.kanan)) {
+      const r = nampak(n);
+      if (r && r.bottom > atas + 20 && r.top < bawah && r.left > B.left + B.width * 0.5) kanan = Math.min(kanan, r.left);
+    }
+    const jidar = 8;
+    atas += jidar; bawah -= jidar; kiri += jidar; kanan -= jidar;
+    if (bawah - atas < B.height * 0.2) return null;
+    return {
+      lebar: (kanan - kiri) / B.width, tinggi: (bawah - atas) / B.height,
+      naik: (B.top + B.height / 2 - (atas + bawah) / 2) / B.height,
+      anjak: ((kiri + kanan) / 2 - (B.left + B.width / 2)) / B.width,
+    };
+  }
+
+  /** Kira semula kotak kandungan (selepas model ditukar banyak, cth. bahagian ditambah). */
+  ukurSemula() { this._kotak = null; }
 
   /** Titik dunia -> koordinat piksel dalam bekas AR (untuk pin label). null jika di belakang kamera. */
   keSkrin(titikDunia, keluar) {

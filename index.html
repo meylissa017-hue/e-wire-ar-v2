@@ -9,7 +9,7 @@
   <title>E-WIRE AR</title>
   <link rel="icon" href="img/ikon.png">
   <link rel="apple-touch-icon" href="img/ikon.png">
-  <link rel="stylesheet" href="css/app.css?v=3">
+  <link rel="stylesheet" href="css/app.css?v=4">
   <script type="importmap">
   {
     "imports": {
@@ -32,17 +32,27 @@
       <div class="latar-zarah" aria-hidden="true"></div>
       <h1 class="tajuk-utama">E-WIRE AR</h1>
       <p class="subtajuk">CABARAN PEMASANGAN PENDAWAIAN</p>
-      <p class="tagline">IMBAS • PADANKAN • WAYARKAN • BELAJAR</p>
+      <p class="tagline bergaris">IMBAS • PADANKAN • WAYARKAN • BELAJAR</p>
       <div class="logo-bekas"><span class="cincin"></span><img src="img/kolej-keda-logo.png" alt="Kolej KEDA"></div>
-      <nav class="menu-butang">
-        <button class="butang utama" data-ke="level1">MULA PERMAINAN</button>
-        <button class="butang" data-ke="pilih">PILIH LEVEL</button>
-        <button class="butang emas-penuh" data-ke="kampung">★ KAMPUNG 3D</button>
-        <button class="butang" data-ke="solar">TEROKAI SISTEM SOLAR</button>
-        <button class="butang" data-ke="litar">MEMBINA LITAR ELEKTRIK</button>
-        <button class="butang" data-modal="m-caramain">CARA MAIN</button>
-        <button class="butang" data-modal="m-tetapan">TETAPAN</button>
-      </nav>
+      <!-- Susun atur sama dengan BinaMenuUtama (Android): kad statistik, MULA, PILIH LEVEL | KAMPUNG, 4 jubin -->
+      <div class="menu-bawah">
+        <div class="kad-stat potong">
+          <span class="stat-bintang" id="stat-bintang"></span><span class="stat-xp" id="stat-xp"></span>
+          <span class="stat-lencana" id="stat-lencana"></span><span class="stat-level" id="stat-level"></span>
+          <span class="stat-bar"><i id="stat-bar"></i></span>
+        </div>
+        <button class="butang-menu potong mula" data-ke="level1">▶&nbsp; MULA PERMAINAN</button>
+        <div class="menu-baris">
+          <button class="butang-menu potong" data-ke="pilih">PILIH LEVEL (1-9)</button>
+          <button class="butang-menu potong kampung" data-ke="kampung">★ KAMPUNG 3D</button>
+        </div>
+        <div class="menu-jubin">
+          <button class="jubin potong" data-ke="solar" style="--aksen:#FFD700"><b>☼</b>SISTEM SOLAR</button>
+          <button class="jubin potong" data-ke="litar" style="--aksen:#00D4FF"><b>ϟ</b>LITAR ELEKTRIK</button>
+          <button class="jubin potong" data-modal="m-caramain" style="--aksen:#73FF99"><b>?</b>CARA MAIN</button>
+          <button class="jubin potong" data-modal="m-tetapan" style="--aksen:#CCB3FF"><b>⚙</b>TETAPAN</button>
+        </div>
+      </div>
       <div class="muat-turun">
         <a href="poster/E-WIRE-AR-Poster-A4.pdf" download>Muat turun poster A4 (PDF)</a>
         <a href="poster/E-WIRE-AR-Kad-QR-A4.pdf" download>Muat turun kad kod QR (PDF)</a>
@@ -53,11 +63,16 @@
     <!-- ======================= PILIH LEVEL ======================= -->
     <section class="skrin" id="s-pilih">
       <header class="bar-atas">
-        <button class="butang kecil" data-ke="menu">← MENU UTAMA</button>
-        <div class="bar-xp"><i></i><span></span></div>
+        <button class="butang kecil" data-ke="menu">← MENU</button>
       </header>
       <h2 class="tajuk-skrin">PILIH LEVEL</h2>
-      <div class="senarai-level" id="senarai-level"></div>
+      <!-- Sama dengan BinaPilihLevel (Android): ringkasan kemajuan, grid 3 x 3, butang SAMBUNG -->
+      <div class="kad-stat potong kemajuan">
+        <span class="stat-xp" id="pilih-xp"></span><span class="stat-level" id="pilih-selesai"></span>
+        <span class="stat-bar"><i id="pilih-bar"></i></span>
+      </div>
+      <div class="grid-level" id="senarai-level"></div>
+      <button class="butang-menu potong mula" id="butang-sambung">▶&nbsp; SAMBUNG</button>
     </section>
 
     <!-- ======================= LEVEL 1 (AR) ======================= -->
@@ -280,10 +295,22 @@
     </div>
   </div>
 
+  <!-- Kamera gagal: pelajar memilih sendiri; objek 3D TIDAK dipaparkan tanpa imbasan poster secara senyap -->
+  <div class="tindih" id="m-kamera" hidden>
+    <div class="kad-modal">
+      <h2>KAMERA TIDAK DAPAT DIBUKA</h2>
+      <div class="modal-isi"><p class="kamera-sebab"></p>
+        <p>iPhone: <b>Tetapan → Safari → Kamera → Benarkan</b>, kemudian tekan CUBA LAGI.</p></div>
+      <button class="butang utama" data-pilih="semula">CUBA LAGI</button>
+      <button class="butang" data-pilih="pratonton">LIHAT 3D TANPA KAMERA</button>
+      <button class="butang" data-pilih="menu">MENU UTAMA</button>
+    </div>
+  </div>
+
   <div id="notis" hidden></div>
   <div id="memuat" hidden><span></span><p>Menyediakan AR…</p></div>
   <div id="lapisan-kesan"></div>
 
-  <script type="module" src="js/app.js?v=3"></script>
+  <script type="module" src="js/app.js?v=4"></script>
 </body>
 </html>

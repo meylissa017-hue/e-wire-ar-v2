@@ -1225,7 +1225,7 @@ export async function kampung(ctx) {
     // hierarki pandangan
     condong = new THREE.Group(); putar = new THREE.Group(); fokus = new THREE.Group();
     condong.add(putar); putar.add(fokus); fokus.add(model);
-    tempat = new Penempatan({ lebarModel: 1, lebarSkrin: 0.98, naik: 0.12, pusatSkrin: true });
+    tempat = new Penempatan({ lebarModel: 1, lebarSkrin: 0.98, naik: 0.12, pusatSkrin: true, muat: { skrin: document.getElementById('s-kampung'), atas: '.bar-atas, .l-tajuk, .l-subtajuk', bawah: '.hud-panel, .l-pilihan, .k-misi', kanan: '.l-butang-sisi', isi: 0.95 } });
     tempat.pusing.add(condong);
     model.updateMatrixWorld(true);
     const tapak = kotak('Tapak');

@@ -339,7 +339,7 @@ export async function level6(ctx) {
   model = await muatModel('PapanKerosakan');
   if (!m.hidup) return { tamat() {} };
   o = cariSemua(model);
-  tempat = new Penempatan({ lebarModel: 1, lebarSkrin: 0.8, naik: 0.14 });
+  tempat = new Penempatan({ lebarModel: 1, lebarSkrin: 0.8, naik: 0.14, muat: { skrin: document.getElementById('s-level6'), atas: '.bar-atas, .l-tajuk, .l-subtajuk', bawah: '.hud-panel, .l-pilihan, .k-misi' } });
   const saiz = tengahkan(model, tempat.pusing);
   tempat.lebarModel = saiz.x;
   sediakanPapan();

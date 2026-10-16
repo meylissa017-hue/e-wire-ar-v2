@@ -398,7 +398,7 @@ export async function level8(ctx) {
   model = await muatModel('PapanUjian');
   if (!m.hidup) return { tamat() {} };
   o = cariSemua(model);
-  tempat = new Penempatan({ lebarModel: 1, lebarSkrin: 0.8, naik: 0.12 });
+  tempat = new Penempatan({ lebarModel: 1, lebarSkrin: 0.8, naik: 0.12, muat: { skrin: document.getElementById('s-level8'), atas: '.bar-atas, .l-tajuk, .l-subtajuk', bawah: '.hud-panel, .l-pilihan, .k-misi' } });
   tempat.pusing.rotation.x = 0.05;
   model.updateMatrixWorld(true);
   sediakan();

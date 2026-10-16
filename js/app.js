@@ -21,7 +21,7 @@ const param = new URLSearchParams(location.search);
 const PAKSA_PRATONTON = param.has('pratonton');
 
 const SKRIN = {
-  menu: { id: 's-menu' },
+  menu: { id: 's-menu', mula: binaMenu },
   pilih: { id: 's-pilih', mula: binaPilihLevel },
   level1: { id: 's-level1', ar: true, mula: level1 },
   level2: { id: 's-level2', mula: level2 },
@@ -69,23 +69,44 @@ async function pergi(nama) {
   aktif = { nama, pengawal };
 }
 
-/** Hidupkan kamera AR; jika gagal, jatuh balik ke paparan 3D tanpa kamera supaya pelajar masih boleh belajar. */
+/**
+ * Hidupkan kamera AR. Objek 3D hanya muncul selepas poster diimbas; jika kamera gagal, pelajar
+ * MEMILIH (cuba lagi / lihat 3D tanpa kamera / menu) — tiada lagi paparan 3D senyap tanpa imbasan.
+ */
 async function hidupAR(pengawal, saya) {
   $('memuat').hidden = false;
   try {
-    if (PAKSA_PRATONTON) await AR.mulakan(pengawal, { tanpaKamera: true });
-    else {
-      try { await AR.mulakan(pengawal); }
+    if (PAKSA_PRATONTON) { await AR.mulakan(pengawal, { tanpaKamera: true }); return; }
+    for (;;) {
+      try { await AR.mulakan(pengawal); return; }
       catch (e) {
         console.warn('Kamera gagal:', e);
         if (saya !== giliran) return;
-        notis(location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-          ? 'Kamera tidak dapat dibuka. Benarkan akses kamera, kemudian cuba semula. Memaparkan model 3D tanpa kamera.'
-          : 'Kamera memerlukan sambungan HTTPS. Memaparkan model 3D tanpa kamera.', 6000);
-        await AR.mulakan(pengawal, { tanpaKamera: true });
+        $('memuat').hidden = true;
+        const pilihan = await tanyaKamera(location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+          ? 'Akses kamera ditolak atau kamera sedang digunakan oleh aplikasi lain.'
+          : 'Kamera memerlukan sambungan HTTPS.');
+        if (saya !== giliran) return;
+        if (pilihan === 'menu') { pergi('menu'); return; }
+        $('memuat').hidden = false;
+        if (pilihan === 'pratonton') { await AR.mulakan(pengawal, { tanpaKamera: true }); return; }
       }
     }
   } finally { $('memuat').hidden = true; }
+}
+
+function tanyaKamera(sebab) {
+  const m = $('m-kamera');
+  m.querySelector('.kamera-sebab').textContent = sebab;
+  m.hidden = false;
+  return new Promise((selesai) => {
+    m.onclick = (e) => {
+      const b = e.target.closest('[data-pilih]');
+      if (!b) return;
+      m.hidden = true; m.onclick = null;
+      selesai(b.dataset.pilih);
+    };
+  });
 }
 
 function notis(teks, ms = 4000) {
@@ -107,22 +128,53 @@ function kemasXP() {
 
 // ---------------------------------------------------------------- pilih level
 
+const bilSelesai = () => { let s = 0; for (let n = 1; n <= D.JUMLAH_LEVEL; n++) if (S.levelSelesai(n)) s++; return s; };
+const teksBintang = (b) => `${'★'.repeat(b)}<span class="bintang-malap">${'★'.repeat(3 - b)}</span>`;
+
+/** Kad statistik Menu Utama (UIMenuUtama.KemaskiniStatistik). */
+function binaMenu() {
+  const xp = S.xpSemasa();
+  $('stat-bintang').innerHTML = teksBintang(S.bintang());
+  $('stat-lencana').textContent = S.lencana();
+  $('stat-xp').textContent = `${xp} / ${D.XP_MAKSIMUM} XP`;
+  $('stat-level').textContent = `${bilSelesai()} / ${D.JUMLAH_LEVEL} LEVEL SELESAI`;
+  $('stat-bar').style.width = Math.min(100, (xp / D.XP_MAKSIMUM) * 100) + '%';
+}
+
+/** Grid 3 x 3 Pilih Level (UIPilihLevel + KadLevel); Level 6-9 (objek 3D) bertema emas. */
 function binaPilihLevel() {
+  const xp = S.xpSemasa(), selesai = bilSelesai();
+  $('pilih-xp').textContent = `★ ${xp} / ${D.XP_MAKSIMUM} XP`;
+  $('pilih-selesai').textContent = `${selesai} / ${D.JUMLAH_LEVEL} SELESAI`;
+  $('pilih-bar').style.width = Math.min(100, (xp / D.XP_MAKSIMUM) * 100) + '%';
   const bekas = $('senarai-level');
   bekas.innerHTML = '';
   for (let n = 1; n <= D.JUMLAH_LEVEL; n++) {
-    const dibuka = S.levelDibuka(n);
+    const dibuka = S.levelDibuka(n), siap = S.levelSelesai(n);
+    const dapat = S.xpLevel(n), maks = D.xpMaksimumLevel(n);
+    // Bintang markah: penuh = 3, >= 60% = 2, ada markah = 1.
+    const b = maks <= 0 || dapat <= 0 ? 0 : dapat >= maks ? 3 : dapat * 10 >= maks * 6 ? 2 : 1;
     const k = document.createElement('button');
     k.type = 'button';
-    k.className = 'kad-level' + (dibuka ? '' : ' terkunci') + (S.levelSelesai(n) ? ' selesai' : '')
-      + (n === S.levelSeterusnya() && !S.levelSelesai(n) ? ' seterusnya' : '');
+    k.className = 'kad-level potong' + (n >= 6 ? ' tiga-d' : '') + (dibuka ? '' : ' terkunci') + (siap ? ' selesai' : '')
+      + (n === S.levelSeterusnya() && !siap ? ' seterusnya' : '');
     k.innerHTML = `
-      <span class="level-no">${dibuka ? n : '🔒'}</span>
-      <span class="level-info"><b>${D.TAJUK_LEVEL[n]}</b><small>${D.HURAIAN_LEVEL[n]}</small></span>
-      <span class="level-xp">★ ${S.xpLevel(n)}/${D.xpMaksimumLevel(n)} XP</span>`;
+      <span class="kad-jalur"></span>${n >= 6 ? '<span class="lencana-3d">3D</span>' : ''}
+      <span class="kad-label">LEVEL</span>
+      <span class="kad-no">${String(n).padStart(2, '0')}</span>
+      <span class="kad-tajuk">${D.TAJUK_LEVEL[n]}</span>
+      <span class="kad-bintang">${dibuka ? teksBintang(b) : ''}</span>
+      <span class="kad-xp">${dibuka ? `${dapat}/${maks} XP` : ''}</span>
+      <span class="kad-status">${!dibuka ? 'TERKUNCI' : siap ? '✓ SIAP' : '▶ MAIN'}</span>`;
     k.addEventListener('click', () => { if (dibuka) { K.bunyiKetik(); pergi('level' + n); } else K.goncang(k); });
     bekas.appendChild(k);
   }
+  // SAMBUNG: level pertama yang dibuka tetapi belum selesai; jika semua selesai, main semula Level 1.
+  let sasaran = 1;
+  for (let n = 1; n <= D.JUMLAH_LEVEL; n++) if (S.levelDibuka(n) && !S.levelSelesai(n)) { sasaran = n; break; }
+  const sambung = $('butang-sambung');
+  sambung.innerHTML = selesai === D.JUMLAH_LEVEL ? '▶&nbsp; MAIN SEMULA LEVEL 1' : `▶&nbsp; SAMBUNG LEVEL ${sasaran}`;
+  sambung.onclick = () => { K.bunyiKetik(); pergi('level' + sasaran); };
 }
 
 // ---------------------------------------------------------------- solar / litar
@@ -219,7 +271,7 @@ function ikat() {
   kemasSuara();
   butangSuara.addEventListener('click', () => { Suara.tetapkanAktif(!Suara.aktif()); kemasSuara(); });
 
-  S.apabilaXPBerubah(kemasXP);
+  S.apabilaXPBerubah(() => { kemasXP(); binaMenu(); });
   sediakanSijil();
 
   // Zarah latar menu (hiasan sahaja).
