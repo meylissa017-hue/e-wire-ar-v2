@@ -71,3 +71,23 @@ export function bunyiBetul() { nada(660, 0, 0.12); nada(990, 0.1, 0.22); }
 export function bunyiSalah() { nada(220, 0, 0.25, 'sawtooth', 0.08); nada(160, 0.12, 0.3, 'sawtooth', 0.08); }
 export function bunyiMenang() { [523, 659, 784, 1047].forEach((f, i) => nada(f, i * 0.12, 0.3)); }
 export function bunyiKetik() { nada(880, 0, 0.05, 'square', 0.04); }
+
+/** Desiran angin kipas: hingar perang bergelung; tetap(kuat 0..1, pic 0.6..1.3). */
+export function bunyiAngin() {
+  const a = konteks();
+  if (!a) return { tetap() {}, henti() {} };
+  const kadar = 22050, data = new Float32Array(kadar);
+  let akhir = 0;
+  for (let i = 0; i < kadar; i++) { akhir = Math.max(-1, Math.min(1, akhir + (Math.random() * 2 - 1) * 0.04)) * 0.995; data[i] = akhir * 0.8; }
+  for (let i = 0; i < 2000; i++) { const t = i / 2000; data[kadar - 2000 + i] = data[kadar - 2000 + i] * (1 - t) + data[i] * t; }
+  const buf = a.createBuffer(1, kadar, kadar);
+  buf.copyToChannel(data, 0);
+  const src = a.createBufferSource(); src.buffer = buf; src.loop = true;
+  const g = a.createGain(); g.gain.value = 0;
+  src.connect(g).connect(a.destination);
+  src.start();
+  return {
+    tetap(kuat, pic) { g.gain.value = kuat; src.playbackRate.value = pic; },
+    henti() { try { src.stop(); } catch (e) { /* abaikan */ } },
+  };
+}

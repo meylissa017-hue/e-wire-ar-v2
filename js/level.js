@@ -392,7 +392,7 @@ export async function level5(ctx) {
     nanti(() => { K.konfeti(); maklum.textContent = 'TAHNIAH! PENDAWAIAN LENGKAP!'; }, 1400);
     nanti(() => K.popup(`+${D.XP.L5} XP ★★★`, WARNA.emas), 1700);
     nanti(() => ctx.panelTamat({ tajuk: '★ PENDAWAIAN LENGKAP! ★', subtajuk: 'LEVEL 5 SELESAI', bintang: 3, xp: `+${D.XP.L5} XP`,
-      butang: [{ teks: 'LIHAT KEPUTUSAN', ke: 'keputusan', utama: true }, { teks: 'MENU UTAMA', ke: 'menu' }] }), 2200);
+      butang: [{ teks: 'TERUSKAN: LEVEL 6 ➡', ke: 'level6', utama: true }, { teks: 'MENU UTAMA', ke: 'menu' }] }), 2200);
   }
 
   const pengawal = {

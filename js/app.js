@@ -7,6 +7,13 @@ import * as K from './kesan.js';
 import * as AR from './ar.js';
 import { level1, level2, level3, level4, level5 } from './level.js';
 import { PamerSolar, PamerLitar } from './pamer.js';
+import { level6 } from './level6.js';
+import { level7 } from './level7.js';
+import { level8 } from './level8.js';
+import { level9 } from './level9.js';
+import { kampung } from './kampung.js';
+import * as Suara from './suara.js';
+import { sediakanSijil } from './sijil.js';
 
 const $ = (id) => document.getElementById(id);
 const param = new URLSearchParams(location.search);
@@ -21,6 +28,11 @@ const SKRIN = {
   level3: { id: 's-level3', mula: level3 },
   level4: { id: 's-level4', mula: level4 },
   level5: { id: 's-level5', ar: true, mula: level5 },
+  level6: { id: 's-level6', ar: true, mula: level6 },
+  level7: { id: 's-level7', ar: true, mula: level7 },
+  level8: { id: 's-level8', ar: true, mula: level8 },
+  level9: { id: 's-level9', ar: true, mula: level9 },
+  kampung: { id: 's-kampung', ar: true, mula: kampung },
   solar: { id: 's-pamer', ar: true, mula: (ctx) => mulaPamer(ctx, 'solar') },
   litar: { id: 's-pamer', ar: true, mula: (ctx) => mulaPamer(ctx, 'litar') },
   keputusan: { id: 's-keputusan', mula: binaKeputusan },
@@ -37,6 +49,8 @@ async function pergi(nama) {
   if (aktif && aktif.pengawal && aktif.pengawal.tamat) aktif.pengawal.tamat();
   aktif = null;
   await AR.hentikan();
+  AR.pulihkanCahaya();
+  Suara.henti();
   $('panel-tamat').hidden = true;
 
   document.querySelectorAll('#ui .skrin').forEach((s) => s.classList.remove('aktif', 'dikesan'));
@@ -164,7 +178,8 @@ function binaKeputusan() {
   const xp = S.xpSemasa();
   tetapBintang($('kp-bintang'), S.bintang());
   $('kp-lencana').textContent = S.lencana();
-  $('kp-rekod').innerHTML = [1, 2, 3, 4, 5].map((n) => `<li><span>Level ${n}</span><b>+${S.xpLevel(n)} XP</b></li>`).join('');
+  $('kp-rekod').innerHTML = Array.from({ length: D.JUMLAH_LEVEL }, (_, i) => i + 1)
+    .map((n) => `<li><span>Level ${n}</span><b>+${S.xpLevel(n)} XP</b></li>`).join('');
   $('kp-jumlah').textContent = `JUMLAH: ${xp} XP`;
   // Kira naik daripada 0 ke jumlah XP.
   const el = $('kp-xp'), mula = performance.now(), saya = giliran;
@@ -199,7 +214,13 @@ function ikat() {
   });
   $('kp-semula').addEventListener('click', () => { S.tetapkanSemula(); pergi('level1'); });
 
+  const butangSuara = $('butang-suara');
+  const kemasSuara = () => { butangSuara.textContent = 'SUARA ARAHAN: ' + (Suara.aktif() ? 'ON' : 'OFF'); };
+  kemasSuara();
+  butangSuara.addEventListener('click', () => { Suara.tetapkanAktif(!Suara.aktif()); kemasSuara(); });
+
   S.apabilaXPBerubah(kemasXP);
+  sediakanSijil();
 
   // Zarah latar menu (hiasan sahaja).
   const zarah = document.querySelector('.latar-zarah');

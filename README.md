@@ -1,4 +1,4 @@
-﻿# E-WIRE AR — versi web
+# E-WIRE AR — versi web
 
 Versi pelayar bagi permainan E-WIRE AR, dibuat supaya **iPhone** boleh bermain tanpa memasang
 apa-apa. Versi Android (projek Unity `E-WIRE-AR-Fresh`) kekal sebagai produk utama; kandungan
@@ -6,7 +6,9 @@ dan aliran skrin di sini sengaja disamakan dengannya.
 
 ## Kandungan
 
-- Menu Utama, Pilih Level, Level 1–5, Keputusan
+- Menu Utama, Pilih Level, Level 1–9, Keputusan (dengan sijil pencapaian)
+- Mod **Kampung 3D**: 6 misi dalam satu diorama kampung (label, HINT A/B/C, seret kabel)
+- Narasi suara BM untuk arahan Level 6–9 & Kampung (Web Speech; boleh dimatikan dalam Tetapan)
 - Modul "Terokai Sistem Solar" dan "Membina Litar Elektrik"
 - Penanda AR: poster E-WIRE AR (dan corak hitam-putih lama) — sama seperti versi Android
 
@@ -26,8 +28,12 @@ dan aliran skrin di sini sengaja disamakan dengannya.
 | `js/simpan.js` | Kemajuan pemain (localStorage) |
 | `js/ar.js` | Kamera, penjejakan, penempatan kandungan pada skrin |
 | `js/level.js` | Level 1–5 |
+| `js/level6.js` … `js/level9.js` | Level 6–9 (sentuh/seret objek 3D) |
+| `js/kampung.js`, `js/kampung-data.js` | Mod Kampung 3D (salinan `KampungPermainan/KampungMisi/DataKampung.cs`) |
+| `js/hud.js`, `js/alat3d.js` | Panel bawah (HUDBawah), animasi, sentuhan 3D, zarah, X-Ray |
+| `js/suara.js`, `js/sijil.js` | Suara BM, sijil pencapaian |
 | `js/pamer.js` | Solar dan Litar (termasuk animasi) |
-| `models/*.glb` | Model dieksport daripada `BlenderSources/*.blend` projek Unity |
+| `models/*.glb`, `models/tekstur/` | Model dieksport daripada `BlenderSources/*.blend` projek Unity + tekstur |
 | `penanda/` | `poster.png`, `corak.png` dan hasil kompil `penanda.mind` |
 
 ## Jalankan & uji di komputer
@@ -44,7 +50,9 @@ Skrip ujian (perlukan `npm install` dalam `tools/`, dan pelayan di atas sedang b
 | Arahan | Fungsi |
 | --- | --- |
 | `node tools/uji.mjs <folder>` | Tangkapan skrin semua skrin + ralat konsol |
-| `node tools/uji-main.mjs <folder>` | Main habis kelima-lima level, sahkan 260 XP |
+| `node tools/uji-main.mjs <folder>` | Main habis kesembilan level (L6–9 diketik/diseret pada objek 3D), sahkan 660 XP |
+| `node tools/uji-kampung.mjs <folder>` | Main habis 6 misi Kampung 3D |
+| `node tools/uji-l.mjs <skrin> <fail.png> [ms]` | Tangkap satu skrin (pilihan: `SKRIP=` arahan Playwright) |
 | `node tools/uji-kamera.mjs <video.mjpeg> <folder>` | Penjejakan AR dengan kamera palsu |
 | `node tools/kompil.mjs` | Kompil semula `penanda/penanda.mind` selepas menukar gambar penanda |
 | `node tools/telefon.mjs` | Periksa tab Chrome pada telefon Android melalui USB |
@@ -52,5 +60,6 @@ Skrip ujian (perlukan `npm install` dalam `tools/`, dan pelayan di atas sedang b
 ## Bila versi Android berubah
 
 - Soalan/label/markah: kemas kini `js/data.js`.
-- Model 3D: eksport semula `.blend` ke `models/*.glb` (glTF, +Y ke atas, objek mesh + empty).
+- Model 3D: `blender -b <fail>.blend --python BlenderSources/eksport_web.py -- models/<fail>.glb`
+  (skrip dalam projek Unity; membawa warna bucu/AO Kampung dan UV kedua). Tekstur: `models/tekstur/`.
 - Poster/penanda: ganti `penanda/poster.png`, kemudian `node tools/kompil.mjs`.

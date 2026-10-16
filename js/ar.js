@@ -32,13 +32,28 @@ export const pratonton = () => modPratonton;
 export const bekas = () => document.getElementById('ar');
 
 function sediaCahaya() {
-  scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+  const ambien = new THREE.AmbientLight(0xffffff, 1.5);
+  scene.add(ambien);
   const arah = new THREE.DirectionalLight(0xffffff, 2.2);
   arah.position.set(0.6, 1.2, 1.5);
   scene.add(arah);
   const isi = new THREE.DirectionalLight(0x9fdcff, 0.8);
   isi.position.set(-1, 0.3, 0.8);
   scene.add(isi);
+  scene.userData.cahaya = { ambien, arah, isi };
+}
+
+/**
+ * Cahaya skena semasa { ambien, arah, isi } — level boleh menukar keamatan/warna (mis. malam di
+ * Level 9 / Kampung). Panggil pulihkanCahaya() apabila keluar supaya skena lain tidak terjejas.
+ */
+export const cahayaSkena = () => scene && scene.userData.cahaya;
+export function pulihkanCahaya() {
+  const c = cahayaSkena();
+  if (!c) return;
+  c.ambien.intensity = 1.5; c.ambien.color.set(0xffffff);
+  c.arah.intensity = 2.2; c.arah.color.set(0xffffff); c.arah.position.set(0.6, 1.2, 1.5);
+  c.isi.intensity = 0.8; c.isi.color.set(0x9fdcff);
 }
 
 async function mulaKamera() {
@@ -197,7 +212,7 @@ export const dariBlender = (x, y, z) => new THREE.Vector3(x, z, -y);
  * patut didudukinya; `naik` pecahan tinggi skrin ia diangkat di atas pusat penanda.
  */
 export class Penempatan {
-  constructor({ lebarModel, lebarSkrin = 0.6, naik = 0.1, tinggiMaks = 0 }) {
+  constructor({ lebarModel, lebarSkrin = 0.6, naik = 0.1, tinggiMaks = 0, pusatSkrin = false }) {
     this.akar = new THREE.Group();
     this.pusing = new THREE.Group();
     this.akar.add(this.pusing);
@@ -206,6 +221,7 @@ export class Penempatan {
     this.lebarSkrin = lebarSkrin;
     this.naik = naik;
     this.tinggiMaks = tinggiMaks;   // { tinggiModel, pecahan } — had tinggi skrin (pilihan)
+    this.pusatSkrin = pusatSkrin;   // kandungan di tengah skrin walaupun poster tidak di tengah (Kampung)
     this.zum = 1;
     this._umur = 0;
     this._sasar = new THREE.Vector3();
@@ -228,6 +244,7 @@ export class Penempatan {
     const tinggiDunia = (2 * jarak) / e[5];
 
     this._sasar.copy(jejak.pos);
+    if (this.pusatSkrin) this._sasar.set(0, 0, jejak.pos.z);   // kamera di asalan: x = y = 0 ialah tengah skrin
     this._sasar.y += this.naik * tinggiDunia;
     if (this._mula) { this.akar.position.copy(this._sasar); this._mula = false; }
     else this.akar.position.lerp(this._sasar, 1 - Math.pow(0.0005, dt));   // pelicinan ~bebas kadar bingkai
