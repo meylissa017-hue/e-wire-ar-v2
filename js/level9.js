@@ -174,7 +174,9 @@ export async function level9(ctx) {
     }
     const s = tempat.akar.scale.x;
     const depan = kamera().getWorldDirection(new THREE.Vector3());
-    const titik = tempat.akar.getWorldPosition(new THREE.Vector3()).addScaledVector(depan, -0.08 * s);
+    // Papan agihan & rak dianjak ~15.5 cm ke hadapan model, jadi satah seret mesti di hadapan kotak agihan
+    // (0.2). Pada 0.08 komponen yang diseret berada DI BELAKANG papan dan terlindung.
+    const titik = tempat.akar.getWorldPosition(new THREE.Vector3()).addScaledVector(depan, -0.2 * s);
     const satah = new THREE.Plane().setFromNormalAndCoplanarPoint(depan.clone().negate(), titik);
     const hit = new THREE.Vector3();
     if (sinar(x, y - el.clientHeight * 0.06).intersectPlane(satah, hit)) diseret.obj.position.copy(diseret.obj.parent.worldToLocal(hit));
