@@ -264,10 +264,16 @@ export class Penempatan {
       if (!this._kotak) this._kotak = this._ukurKandungan();
       this._sejakRuang += dt;
       if (!this._ruang || this._sejakRuang > 0.3) { this._ruang = this._ruangBebas(); this._sejakRuang = 0; }
-      const r = this._ruang, k = this._kotak;
+      const k = this._kotak;
+      // Ruang bebas boleh ada dua pilihan (di kiri butang sisi, atau di bawahnya): ambil yang memberi
+      // kandungan paling besar. Dulu hanya ruang di kiri dipakai — Kampung jadi kecil dan teralih ke kiri.
+      let r = null, terbaik = 0;
+      if (k) for (const c of this._ruang || []) {
+        const sc = Math.min((c.lebar * lebarDunia) / k.lebar, (c.tinggi * tinggiDunia) / k.tinggi);
+        if (sc > terbaik) { terbaik = sc; r = c; }
+      }
       if (r && k) {
-        const sx = (r.lebar * lebarDunia) / k.lebar, sy = (r.tinggi * tinggiDunia) / k.tinggi;
-        skala = Math.min(sx, sy) * this.muat.isi;
+        skala = terbaik * this.muat.isi;
         oy = r.naik * tinggiDunia - k.y * skala;
         ox = r.anjak * lebarDunia - k.x * skala;
       }
@@ -326,18 +332,25 @@ export class Penempatan {
     let atas = B.top, bawah = B.bottom, kiri = B.left, kanan = B.right;
     for (const n of skrin.querySelectorAll(this.muat.atas || '')) { const r = nampak(n); if (r && r.bottom < B.top + B.height * 0.5) atas = Math.max(atas, r.bottom); }
     for (const n of skrin.querySelectorAll(this.muat.bawah || '')) { const r = nampak(n); if (r && r.top > B.top + B.height * 0.3) bawah = Math.min(bawah, r.top); }
+    // Butang sisi kanan: ruang di KIRInya (tinggi penuh) ATAU ruang di BAWAHnya (lebar penuh).
+    let kananSisi = kanan, bawahSisi = atas;
     if (this.muat.kanan) for (const n of skrin.querySelectorAll(this.muat.kanan)) {
       const r = nampak(n);
-      if (r && r.bottom > atas + 20 && r.top < bawah && r.left > B.left + B.width * 0.5) kanan = Math.min(kanan, r.left);
+      if (r && r.bottom > atas + 20 && r.top < bawah && r.left > B.left + B.width * 0.5) { kananSisi = Math.min(kananSisi, r.left); bawahSisi = Math.max(bawahSisi, r.bottom); }
     }
     const jidar = 8;
-    atas += jidar; bawah -= jidar; kiri += jidar; kanan -= jidar;
-    if (bawah - atas < B.height * 0.2) return null;
-    return {
-      lebar: (kanan - kiri) / B.width, tinggi: (bawah - atas) / B.height,
-      naik: (B.top + B.height / 2 - (atas + bawah) / 2) / B.height,
-      anjak: ((kiri + kanan) / 2 - (B.left + B.width / 2)) / B.width,
+    const ruang = (a, b, ki, ka) => {
+      a += jidar; b -= jidar; ki += jidar; ka -= jidar;
+      if (b - a < B.height * 0.2) return null;
+      return {
+        lebar: (ka - ki) / B.width, tinggi: (b - a) / B.height,
+        naik: (B.top + B.height / 2 - (a + b) / 2) / B.height,
+        anjak: ((ki + ka) / 2 - (B.left + B.width / 2)) / B.width,
+      };
     };
+    const pilihan = [ruang(atas, bawah, kiri, kananSisi)];
+    if (bawahSisi > atas) pilihan.push(ruang(bawahSisi, bawah, kiri, kanan));
+    return pilihan.filter(Boolean);
   }
 
   /** Kira semula kotak kandungan (selepas model ditukar banyak, cth. bahagian ditambah). */

@@ -170,6 +170,16 @@ export const SENARAI_LABEL = [
   ['suis', 'Suis', 'Suis_A', null, true],
   ['lampu', 'Lampu', 'Kaca_A', null, true],
   ['soket', 'Soket Alur Keluar', 'Soket_A', null, true],
+  // sasaran misi Rumah Gelap & Pulihkan Kampung (label kecil: hanya kelihatan semasa zum dekat)
+  ['dbB', 'Kotak Agihan', 'DB_B', null, true],
+  ['suisB', 'Suis Lampu', 'Suis_B', null, true],
+  ['suisBRosak', 'Suis Lampu', 'Suis_B_Rosak', null, true],
+  ['sambB', 'Sambungan Talian', 'Sambungan_B', null, true],
+  ['dbKedai', 'Kotak Agihan', 'DB_Kedai', null, true],
+  ['soketKedai', 'Soket', 'Bahaya_SoketBebanLebih', null, true],
+  ['dbDewan', 'Kotak Agihan', 'DB_Dewan', null, true],
+  ['sambDewan', 'Sambungan Neutral', 'Sambungan_Dewan', null, true],
+  ['fius', 'Kotak Fius', 'KotakFius_Tiang', null, true],
 ];
 // Langkah Misi 1 -> label yang dibuka.
 export const LABEL_MISI1 = ['pencawang', 'tiang', 'talian', 'meter', 'db', 'lampu'];

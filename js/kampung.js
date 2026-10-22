@@ -37,11 +37,12 @@ const BAHAN_BENDERA = new Set(['Kampung_BenderaKeda']);
 const BAHAN_TANAH = new Set(['Kampung_Rumput', 'Kampung_RumputGelap', 'Kampung_Tanah', 'Kampung_DasarSungai', 'Kampung_Air', 'Kampung_Batu', 'Kampung_Jalan', 'Kampung_GarisJalan']);
 const BAHAN_KAD = new Set(['Kampung_DaunKad', 'Kampung_Pelepah', 'Kampung_PisangKad']);
 
-// nama -> [objek kosong fokus, zum, sudut condong, objek arah hadapan]
+// nama -> [objek kosong fokus, zum, sudut condong, objek arah hadapan, yaw tetap (darjah, pilihan)]
 const FOKUS = {
   kampung: ['Fokus_Kampung', 0.88, 42, null], pencawang: ['Fokus_Pencawang', 2.4, 36, null], rumahA: ['Fokus_RumahA', 2.6, 32, null],
   dindingA: ['Fokus_DindingA', 3.4, 9, 'Normal_DindingA'], rumahB: ['Fokus_RumahB', 3.0, 20, 'Arah_RumahB'],
-  kedai: ['Fokus_Kedai', 2.6, 22, null], dewan: ['Fokus_Dewan', 2.5, 22, null], tiang: ['Fokus_Tiang', 2.2, 18, null],
+  kedai: ['Fokus_Kedai', 3.0, 10, null],   // sudut rendah: nampak ke dalam kedai di bawah jalur dinding & papan tanda
+  dewan: ['Fokus_Dewan', 2.5, 22, null], tiang: ['Fokus_Tiang', 2.2, 18, null],
 };
 const BANGUNAN = ['A', 'B', 'Kedai', 'Dewan', 'Jalan'];
 const DEG = Math.PI / 180;
@@ -218,6 +219,7 @@ export async function kampung(ctx) {
       const d = fokus.worldToLocal(obj(f[3]).getWorldPosition(new THREE.Vector3())).sub(titikS);
       if (d.x * d.x + d.z * d.z > 1e-8) yawS = Math.atan2(-d.x, d.z) / DEG;
     }
+    if (f[4] !== undefined) yawS = f[4];
     condongP = 0; yawP = 0; zumP = 1;
     if (segera) { titikK.copy(titikS); zumK = zumS; condongK = condongS; yawK = yawS; kenakanPandangan(); }
   }
@@ -347,6 +349,35 @@ export async function kampung(ctx) {
     });
   }
 
+  // ---- sorotan: sasaran misi berdenyut bercahaya (emisi) supaya jelas walaupun malam / gelap
+  const sorotan = [];            // { mesh, asal, salinan }
+  let rutinSorot = null;
+  function sorot(senarai) {
+    hentiSorot();
+    for (const n of senarai) {
+      const t = obj(n); if (!t) continue;
+      t.traverse((q) => {
+        if (!q.isMesh) return;
+        const salinan = q.material.clone();
+        salinan.emissive = srgb(1, 0.78, 0.25); salinan.emissiveIntensity = 0;
+        sorotan.push({ mesh: q, asal: q.material, salinan });
+        q.material = salinan;
+      });
+    }
+    let w = 0;
+    rutinSorot = m.setiap((dt) => {
+      w += dt;
+      const v = 0.12 + 0.5 * (0.5 - 0.5 * Math.cos(w * Math.PI * 1.5));
+      for (const x of sorotan) x.salinan.emissiveIntensity = v;
+    });
+  }
+  function hentiSorot() {
+    if (rutinSorot) rutinSorot.henti();
+    rutinSorot = null;
+    for (const x of sorotan) { if (x.mesh.material === x.salinan) x.mesh.material = x.asal; x.salinan.dispose(); }
+    sorotan.length = 0;
+  }
+
   // ================================================================ HUD & markah
   const arahan = (l, t, w) => hud.arahan(l, t, w);
   const toast = (t, w, s = 2.6) => hud.toast(t, w, s);
@@ -428,6 +459,7 @@ export async function kampung(ctx) {
     sorokHint();
     misi = -1; sibuk = false; tvHidup = true;
     tunjukPenunjuk(null);
+    hentiSorot();
     elPilihan.hidden = true;
   }
 
@@ -439,6 +471,7 @@ export async function kampung(ctx) {
     misi = i;
     modLabel = i === 0 ? 'Terhad' : i === 4 ? 'Tiada' : 'Semua'; labelTerbuka.clear();
     kesilapan = 0;
+    hud.elFakta.classList.remove('nampak');   // jangan papar fakta misi sebelumnya
     elMisi.textContent = i === 5 ? 'MISI AKHIR: ' + KD.TAJUK_MISI[i] : `MISI ${i + 1}: ${KD.TAJUK_MISI[i]}`;
     const t = tokenMisi;
     [misi1, misi2, misi3, misi4, misi5, misi6][i](t).catch((e) => console.error(e));
@@ -570,6 +603,8 @@ export async function kampung(ctx) {
     const calon = [['DB_B', 'Togol_B_MCB'], ['Suis_B', 'Suis_B_Rosak'], ['Sambungan_B', 'Talian_Servis_B', 'Talian_Servis_B_Putus']];
     const normal = ['MCB dalam kotak agihan berada pada kedudukan ON — normal.', 'Suis lampu berfungsi dengan baik — normal.', 'Sambungan talian servis kemas dan ketat — normal.'];
     const diperiksa = new Set();
+    const sorotCalon = () => sorot(calon.filter((_, i) => !diperiksa.has(i)).map((c) => c[0]).concat(diperiksa.has(1) ? [] : ['Suis_B_Rosak']));
+    sorotCalon();
     let j;
     for (;;) {
       const kena = await tungguKetik(calon.flat(), () => toast('Ketik kotak agihan, suis atau sambungan talian rumah B.', WARNA.neon, 1.8), 0.06);
@@ -580,7 +615,9 @@ export async function kampung(ctx) {
       toast(normal[j], WARNA.neon, 2.4);
       denyut(calon[j][0], 1);
       cip(j, KEADAAN.Siap, label[j] + ' OK');
+      sorotCalon();
     }
+    sorot(punca === 1 ? ['Suis_B_Rosak'] : [calon[punca][0]]);
     kesilapan = Math.max(0, diperiksa.size - 2) * 2;
     cip(j, KEADAAN.Semasa, 'PUNCA!');
     if (punca === 0) {
@@ -606,7 +643,9 @@ export async function kampung(ctx) {
       tunjuk('Talian_Servis_B_Putus', false); tunjuk('Talian_Servis_B', true);
     }
     if (!aktif(t)) return;
-    cip(j, KEADAAN.Siap, label[j]); cip(3, KEADAAN.Siap, label[3]);
+    hentiSorot();
+    for (let i = 0; i < 3; i++) cip(i, KEADAAN.Siap, i === j ? label[i] : diperiksa.has(i) ? label[i] + ' OK' : label[i]);
+    cip(3, KEADAAN.Siap, label[3]);
     setKuasa('B', true, true);
     betul('RUMAH B MENYALA SEMULA!', 'Tingkap_B');
     if (!(await tunggu(1.2, t))) return;
@@ -672,20 +711,24 @@ export async function kampung(ctx) {
   }
   const bahanKabel = (j) => bahanWayar[j] || bahanWayar.L;
 
-  /** Titik lengkung kabel kendur dari a ke b (ruang fokus), sedikit terkeluar dari dinding. */
-  function titikKabel(a, b, bil = 10) {
-    const n = normalDinding(), hasil = [];
-    a = a.clone().addScaledVector(n, 0.003 * k); b = b.clone().addScaledVector(n, 0.003 * k);
-    const jarak = a.distanceTo(b);
-    for (let i = 0; i <= bil; i++) {
-      const q = i / bil, bentuk = 4 * q * (1 - q);
-      hasil.push(a.clone().lerp(b, q).add(new THREE.Vector3(0, -bentuk * jarak * 0.18, 0)).addScaledVector(n, bentuk * 0.004 * k));
-    }
+  /** Laluan kabel dari a ke b (ruang fokus) mengikut dinding seperti pendawaian permukaan: menegak dari
+   *  terminal ke paras trunking, mendatar sepanjang trunking, kemudian menegak ke terminal kedua.
+   *  Setiap konduktor (L/N/E) dianjak sedikit supaya tidak bertindih. */
+  function titikKabel(a, b, bil = 10, jenis = 'L') {
+    const n = normalDinding();
+    const tr = obj('Trunking_A');
+    const yT = (tr ? fokus.worldToLocal(tr.getWorldPosition(new THREE.Vector3())).y : Math.max(a.y, b.y))
+      + ({ L: 0, N: 0.0028, E: -0.0028 }[jenis] || 0) * k;
+    const sudut = [a, new THREE.Vector3(a.x, yT, a.z), new THREE.Vector3(b.x, yT, b.z), b];
+    const hasil = [];
+    const per = Math.max(2, Math.round(bil / 3));
+    for (let s = 0; s < 3; s++) for (let i = s ? 1 : 0; i <= per; i++) hasil.push(sudut[s].clone().lerp(sudut[s + 1], i / per));
+    for (const p of hasil) p.addScaledVector(n, 0.003 * k);
     return hasil;
   }
 
   function binaKabel(titik, bahan, lama = null) {
-    const lengkung = new THREE.CatmullRomCurve3(titik);
+    const lengkung = new THREE.CatmullRomCurve3(titik, false, 'catmullrom', 0.1);   // tegang: bucu trunking kekal tajam
     const g = new THREE.TubeGeometry(lengkung, titik.length * 2, 0.0011 * k, 6, false);
     if (lama) { lama.geometry.dispose(); lama.geometry = g; lama.material = bahan; return lama; }
     const mesh = new THREE.Mesh(g, bahan);
@@ -739,7 +782,7 @@ export async function kampung(ctx) {
     // Hujung kabel mengekori jari secara licin, lebih laju apabila melekat pada terminal.
     if (!hujungAda) { hujungLicin.copy(pusatFokus(terminalMula)); hujungAda = true; }
     hujungLicin.lerp(hujung, 1 - Math.exp(-(sasaran ? 22 : 14) * (1 / 30)));
-    pratonton = binaKabel(titikKabel(pusatFokus(terminalMula), hujungLicin, 18), bahanKabel(KD.jenisTerminal(terminalMula)), pratonton);
+    pratonton = binaKabel(titikKabel(pusatFokus(terminalMula), hujungLicin, 18, KD.jenisTerminal(terminalMula)), bahanKabel(KD.jenisTerminal(terminalMula)), pratonton);
   }
 
   function tamatSeretKabel(x, y) {
@@ -798,7 +841,7 @@ export async function kampung(ctx) {
     if (!lampu && !soket) { salah(penerangan(a, b)); return; }
     sambungan.add(kk);
     const j = KD.jenisTerminal(a) === 'L' || KD.jenisTerminal(b) === 'L' ? 'L' : KD.jenisTerminal(a);
-    sementara.push(binaKabel(titikKabel(pusatFokus(a), pusatFokus(b)), bahanKabel(j)));
+    sementara.push(binaKabel(titikKabel(pusatFokus(a), pusatFokus(b), 18, j), bahanKabel(j)));
     K.bunyiBetul();
     kesanBetul(zk, pusatModel(b), 1);
     toast(`BETUL! Kabel ${j === 'N' ? 'BIRU (Neutral)' : j === 'E' ? 'HIJAU-KUNING (Bumi)' : 'COKLAT (Hidup)'} disambung.`, WARNA.betul, 2);
@@ -990,6 +1033,7 @@ export async function kampung(ctx) {
       arahan(g.label.length > 8 ? 'BAIKI' : g.label, g.gejala, WARNA.salah);
       if (!(await tunggu(0.5, t))) return;
       const semuaSasaran = [...new Set(g.langkah.flatMap((l) => l.sasaran))];
+      sorot(semuaSasaran.filter((n) => n !== 'Cerek_A' && !n.startsWith('Togol_')));
       for (let j = 0; j < g.langkah.length; j++) {
         for (;;) {
           const x = await tungguKetik(semuaSasaran, () => toast('Periksa komponen yang berkaitan dengan gangguan ini.', WARNA.neon, 1.6), 0.045, g.langkah[j].sasaran);
@@ -1003,6 +1047,7 @@ export async function kampung(ctx) {
         betul(g.langkah[j].berjaya, g.langkah[j].sasaran[0]);
         if (!(await tunggu(1.1, t))) return;
       }
+      hentiSorot();
       setKuasa(g.kunci, true, true);
       cip(ig + 1, KEADAAN.Siap, g.label);
       baki.splice(baki.indexOf(g), 1);
@@ -1066,6 +1111,8 @@ export async function kampung(ctx) {
       const t = obj(l.objek);
       let boleh = kampungNampak && t && nampak(t) && labelHidup && modLabel !== 'Tiada' && (modLabel === 'Semua' || labelTerbuka.has(l.kunci))
         && (!l.kecil || zum >= 1.8) && (l.kecil || zum < 2.2) && (elPanelMisi.hidden || !l.kecil);   // zum dekat: label komponen sahaja
+      // Label komponen (kecil) hanya untuk bangunan yang sedang difokus — bukan bangunan lain di belakangnya.
+      if (boleh && l.kecil) { const d = pusatFokus(l.objek).sub(titikK); boleh = Math.hypot(d.x, d.z) < 0.19 * k; }
       let s = null;
       if (boleh) { const p = titikLabel(l); s = p && keSkrin(p); boleh = !!s && s.z < 1 && s.x > -50 && s.x < el.clientWidth + 50 && s.y > 0 && s.y < el.clientHeight; }
       if (!boleh) { l.kotakEl.style.display = l.garis.style.display = l.titik.style.display = 'none'; l.licin = null; continue; }
@@ -1087,6 +1134,7 @@ export async function kampung(ctx) {
     }
     // Kotak label dilicinkan (titik kekal tepat pada objek): tolakan "elak bertindih" yang bertukar
     // antara dua kedudukan, dan gangguan kecil penjejakan, tidak lagi kelihatan sebagai getaran.
+    for (const l of aktifL) l.pos.x = Math.max(l.w / 2 + 4, Math.min(el.clientWidth - l.w / 2 - 4, l.pos.x));   // kotak label kekal dalam skrin
     const a = 1 - Math.pow(0.0001, dt);
     for (const l of aktifL) {
       if (!l.licin) l.licin = { ...l.pos };
@@ -1262,7 +1310,10 @@ export async function kampung(ctx) {
     setSemulaKampung();
     fokuskan('kampung', true);
     daftarUji(tempat.akar);
-    if (window.__uji) { window.__uji.segi = segiSkrin; window.__uji.cari = (x, y, calon) => cariSasaran(x, y, calon, 0.045); }
+    if (window.__uji) {
+      window.__uji.segi = segiSkrin; window.__uji.cari = (x, y, calon) => cariSasaran(x, y, calon, 0.045);
+      window.__uji.fokus = (nama, ubah) => { if (ubah) FOKUS[nama] = ubah; fokuskan(nama, true); };
+    }
   }
 
   return {
